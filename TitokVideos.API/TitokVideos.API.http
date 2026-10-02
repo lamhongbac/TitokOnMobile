@@ -1,0 +1,6 @@
+@TitokVideos.API_HostAddress = http://localhost:5067
+
+GET {{TitokVideos.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

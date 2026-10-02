@@ -1,0 +1,21 @@
+Giải pháp gồm các phần sau
+
+Dự án Có giao diện để
+load các tiktok mới nhất (so với CSDL) feed nạp vào bảng tiktokFeed
+Mục đích khi nào cần chạy đột xuất
+
+
+Dự án Background job 
+Định kỳ hàng ngày vào 1 thời điểm load các tiktok mới nhất (so với CSDL) feed nạp vào bảng tiktokFeed
+
+
+Dự án API nhằm cung cấp cho mobile app hiển thị video 
+
+
+Chú ý 
+Cả 3 dự án share với nhau
+Dự án giao diện chạy trước để test
+Sử dụng Dapper để lưu và đọc CSDL
+Sử dụng try-catch để đảm bảo kiểm soát
+ 
+Khi có exception cần đưa nội dung lỗi (exception message) vào log file cho mục đích xủ lý sau đó (exception)

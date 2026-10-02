@@ -1,0 +1,53 @@
+Dưới đây là thiết kế chi tiết cho bảng `TiktokFeed`, được tối ưu hóa cho Entity Framework Core (C#) và cơ sở dữ liệu quan hệ (SQL Server hoặc PostgreSQL).
+
+CREATE TABLE [dbo].[TiktokFeed](
+	[Id] [uniqueidentifier] NOT NULL,
+	[VideoId] [varchar](50) NOT NULL,
+	[Title] [nvarchar](1500) NULL,
+	[ThumbnailUrl] [varchar](1000) NOT NULL,
+	[MediaUrl] [varchar](1000) NOT NULL,
+	[PublishedAt] [datetimeoffset](7) NOT NULL,
+	[ViewCount] [int] NOT NULL,
+	[CreatedAt] [datetime2](7) NOT NULL,
+	[IsActive] [bit] NOT NULL,
+ CONSTRAINT [PK_TiktokFeed] PRIMARY KEY CLUSTERED 
+(
+	[Id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+
+ALTER TABLE [dbo].[TiktokFeed] ADD  CONSTRAINT [DF_TiktokFeed_IsActive]  DEFAULT ((1)) FOR [IsActive]
+GO
+
+
+| Tên trường (Field) | Kiểu dữ liệu (C#) | Kiểu dữ liệu (DB SQL) | Thuộc tính & Mục đích sử dụng |
+| --- | --- | --- | --- |
+| **`Id`** | `Guid` | `UNIQUEIDENTIFIER` | **Khóa chính (Primary Key).** Sinh tự động (Auto-generated). Sử dụng `Guid` giúp dễ dàng đồng bộ dữ liệu giữa các hệ thống phân tán, hoặc bạn có thể dùng `long` (BIGINT tự tăng) nếu muốn tối giản. |
+| **`VideoId`** | `string` | `VARCHAR(50)` | **Unique Index.** Lưu ID gốc của bài đăng TikTok (VD: `"732569810...""`). *Bắt buộc* dùng kiểu chuỗi (String) vì ID của TikTok là một dãy số rất lớn, nếu lưu bằng kiểu số nguyên có thể gây lỗi tràn bộ nhớ hoặc mất độ chính xác. |
+| **`Title`** | `string?` | `NVARCHAR(1500)` | Nội dung mô tả (Caption) và bộ hashtag của video. Cần hỗ trợ Unicode (NVARCHAR) để lưu tiếng Việt và emoji. |
+| **`ThumbnailUrl`** | `string` | `VARCHAR(1000)` | URL ảnh bìa tĩnh do API trả về. Dùng để load nhanh trên danh sách của Mobile App mà không cần tải video. |
+| **`MediaUrl`** | `string` | `VARCHAR(1000)` | URL trỏ tới file `.mp4` trực tiếp hoặc đường dẫn iframe chuẩn. |
+| **`PublishedAt`** | `DateTimeOffset` | `DATETIMEOFFSET` | Thời gian video được đăng tải thực tế trên TikTok. Khuyến nghị dùng `DateTimeOffset` thay vì `DateTime` để chuẩn hóa múi giờ gốc, tránh lỗi hiển thị lệch giờ trên Mobile App. |
+| **`ViewCount`** | `int` | `INT` | (Tùy chọn) Lưu số lượt xem tại thời điểm hệ thống cào dữ liệu để hiển thị tương tác trên UI. |
+| **`CreatedAt`** | `DateTime` | `DATETIME2` | Thời gian hệ thống Background Worker ghi nhận bản ghi này vào database. |
+| **`IsActive`** | `bool` | `BIT` | Cờ trạng thái (Default = `true`). Dùng để ẩn (Soft-delete) các video bị lỗi hoặc không muốn hiển thị trên app mà không cần xóa vật lý. |
+
+Để đảm bảo hiệu năng truy vấn cho Mobile App (đặc biệt khi dữ liệu lớn dần lên và cần phân trang), bạn nên cấu hình Fluent API trong file `DbContext` của .NET như sau:
+
+```csharp
+protected override void OnModelCreating(ModelBuilder modelBuilder)
+{
+    modelBuilder.Entity<TiktokFeed>(entity =>
+    {
+        entity.HasKey(e => e.Id);
+        
+        // Đảm bảo không lưu trùng lặp video
+        entity.HasIndex(e => e.VideoId).IsUnique();
+        
+        // Đánh index cho cột PublishedAt để tăng tốc độ phân trang (Order By Desc)
+        entity.HasIndex(e => e.PublishedAt);
+    });
+}
+
+```

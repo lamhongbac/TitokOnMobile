@@ -1,0 +1,120 @@
+Các bước triển khai luồng đồng bộ dữ liệu TikTok tự động,
+ kiến trúc backend (sử dụng ASP.NET Core Web API) sẽ được chia thành các module xử lý độc lập.
+
+Thông tin chung
+
+SQL server: 45.119.87.247
+UserName/pwd: dev/@HelloMSA2026
+Database:MediaService
+Table:TiktokFeed
+Detail: Xem:TiktokFeedDetail.txt
+
+
+
+I.Các bước triển khai luồng đồng bộ dữ liệu TikTok
+
+1. Thiết kế Cơ sở dữ liệu (Database Schema)
+
+Tạo bảng TiktokFeed (thao tác qua Entity Framework Core) bao gồm các trường cốt lõi: Id, VideoId (chuỗi ID gốc của TikTok để check trùng lặp), Title, ThumbnailUrl, MediaUrl (link iframe hoặc link video mp4), và PublishedAt.
+
+Đánh Index (chỉ mục) cho cột VideoId (Unique) và PublishedAt (Desc) để tăng tốc độ truy vấn khi ứng dụng di động gọi dữ liệu mới nhất.
+
+2. Đăng ký và cấu hình nguồn cấp dữ liệu (Data Source)
+
+Tạo tài khoản trên RapidAPI và đăng ký một dịch vụ cào dữ liệu TikTok (ví dụ: TikAPI, TokAPI) để lấy API Key.
+
+Thiết lập cấu hình trong appsettings.json hoặc trình quản lý Secret Vault, bao gồm BaseUrl của API thứ 3, API_KEY, và Target_TikTok_ID (@giga.official).
+
+3. Xây dựng Background Worker (Tác vụ chạy ngầm)
+
+Kế thừa lớp BackgroundService mặc định của .NET hoặc tích hợp thư viện quản lý Job chuyên dụng như Hangfire / Quartz.NET.
+
+Thiết lập chu kỳ chạy (Cron job) định kỳ, ví dụ 2 đến 4 giờ một lần.
+
+Sử dụng IHttpClientFactory khởi tạo kết nối gọi sang API thứ 3.
+
+Xử lý logic Upsert: Nhận cục JSON trả về, bóc tách danh sách video. So sánh VideoId với CSDL hiện tại. Bỏ qua các video đã tồn tại và chỉ Insert các video mới.
+
+4. Triển khai REST API Endpoint cho Mobile App
+
+Tạo TiktokFeedController bộc lộ endpoint GET /api/v1/tiktok/videos.
+
+Thiết lập bắt buộc tham số phân trang (pageIndex, pageSize) để hỗ trợ Mobile App tải dữ liệu theo từng cụm, tối ưu hóa tính năng cuộn vô hạn (infinite scrolling).
+
+Định dạng dữ liệu trả về (DTO) chỉ chứa các trường hiển thị cần thiết, loại bỏ các meta-data thừa để giảm thiểu payload mạng.
+
+5. Tối ưu hóa và Giám sát (Caching & Logging)
+
+Tích hợp Redis Cache hoặc In-Memory Cache ở tầng API. Cài đặt thời gian sống (TTL) của cache khoảng 15-30 phút để giảm thiểu số lượng truy vấn trực tiếp vào Database khi lượng người dùng Mobile App mở cùng lúc tăng cao.
+
+Cấu hình Serilog để ghi log tập trung. Thiết lập bắt lỗi (try-catch) kỹ lưỡng trong Background Worker phòng trường hợp API bên thứ 3 thay đổi cấu trúc dữ liệu hoặc hết giới hạn gọi (Rate Limit), từ đó bắn cảnh báo (Alert) cho quản trị viên xử lý.
+
+
+II.Thuật toán "Smart Sync" (Đồng bộ thông minh)
+
+Xác định "Cột mốc thời gian" là ngày PublishedAt mới nhất đang lưu trong bảng TiktokFeed.
+(bạn nên thực hiện 1 câu query vào bảng TiktokFeed trước)
+
+Gọi API lấy trang đầu tiên (các video mới nhất).
+
+Duyệt qua từng video. API TikTok trả về thời gian đăng dưới dạng Unix Timestamp (thường nằm ở trường createTime). Đổi Unix Timestamp này sang DateTimeOffset của .NET.
+
+Nếu thời gian của video mới hơn cột mốc: Lưu vào Database.
+
+Nếu gặp một video có thời gian cũ hơn cột mốc: Ngay lập tức thoát khỏi vòng lặp (break) và dừng tiến trình. 
+(Vì danh sách đã xếp giảm dần, video này cũ thì chắc chắn các video bên dưới càng cũ hơn).
+
+Sample code
+using System;
+using System.Net.Http;
+using System.Text.Json;
+using System.Threading.Tasks;
+
+// ... (Đoạn khởi tạo HttpClient và request giữ nguyên như cũ)
+
+try
+{
+    using var response = await client.SendAsync(request);
+    response.EnsureSuccessStatusCode(); 
+    var body = await response.Content.ReadAsStringAsync();
+    
+    // 1. Phân tích chuỗi JSON trả về
+    using JsonDocument doc = JsonDocument.Parse(body);
+    
+    // Tùy theo cấu trúc API, danh sách video thường nằm trong mảng "itemList" hoặc "data"
+    // (Bạn cần check log thực tế để trỏ đúng tên mảng)
+    JsonElement videoList = doc.RootElement.GetProperty("itemList");
+
+    // 2. Cài đặt mốc thời gian quét (Cắt đúng 24 giờ trước)
+    DateTimeOffset cutoffTime = DateTimeOffset.UtcNow.AddDays(-1);//=> thưc tế nen thực hiện 1 câu query vào bảng TiktokFeed trước
+    
+    Console.WriteLine($"Chỉ lấy các video đăng sau: {cutoffTime:dd/MM/yyyy HH:mm:ss} UTC");
+
+    foreach (JsonElement video in videoList.EnumerateArray())
+    {
+        // 3. Lấy trường thời gian tạo (thường tên là createTime, định dạng giây Unix)
+        long createTimeUnix = video.GetProperty("createTime").GetInt64();
+        
+        // Chuyển đổi Unix sang DateTimeOffset của C#
+        DateTimeOffset publishedAt = DateTimeOffset.FromUnixTimeSeconds(createTimeUnix);
+
+        // 4. Kiểm tra điều kiện thời gian
+        if (publishedAt < cutoffTime)
+        {
+            Console.WriteLine($"\n[DỪNG] Đã chạm đến video cũ ({publishedAt:dd/MM/yyyy HH:mm}). Kết thúc chu kỳ lấy tin.");
+            break; // Thoát vòng lặp ngay lập tức, không xử lý các video phía sau nữa
+        }
+
+        // 5. Nếu video còn mới, bóc tách tiếp dữ liệu để đưa vào Entity TiktokFeed
+        string videoId = video.GetProperty("id").GetString();
+        string desc = video.GetProperty("desc").GetString();
+        
+        Console.WriteLine($"- Đã lấy video mới: {videoId} (Đăng lúc: {publishedAt:dd/MM/yyyy HH:mm})");
+        
+        // TODO: Chèn logic gọi Entity Framework (dbContext.TiktokFeeds.Add(...)) tại đây
+    }
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"LỖI: {ex.Message}");
+}

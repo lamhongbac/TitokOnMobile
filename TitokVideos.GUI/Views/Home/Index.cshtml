@@ -1,0 +1,108 @@
+@using TitokVideos.BLL.BOs
+@model IEnumerable<TiktokFeedBO>
+
+@{
+    ViewData["Title"] = "TikTok Feeds";
+}
+
+<div class="text-center mb-4">
+    <h1 class="display-4">TikTok Feeds</h1>
+    <p>Dự án Giao diện nạp dữ liệu thủ công</p>
+    
+    <form asp-action="Sync" method="post">
+        <button type="submit" class="btn btn-primary btn-lg">Bắt đầu Đồng bộ (Smart Sync)</button>
+    </form>
+</div>
+
+@if (TempData["Message"] != null)
+{
+    <div class="alert alert-info alert-dismissible fade show" role="alert">
+        @TempData["Message"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+<div class="row row-cols-1 row-cols-md-3 g-4">
+    @if(Model != null)
+    {
+        foreach (var item in Model)
+        {
+            <div class="col">
+                <div class="card h-100">
+                    <img src="@item.ThumbnailUrl" class="card-img-top" alt="Thumbnail" style="max-height: 300px; object-fit: cover;">
+                    <div class="card-body">
+                        <h5 class="card-title text-truncate">@item.Title</h5>
+                        <p class="card-text"><strong>Views:</strong> @item.ViewCount.ToString("N0")</p>
+                        <p class="card-text"><small class="text-muted">Published: @item.PublishedAt.ToString("dd/MM/yyyy HH:mm")</small></p>
+                        <a href="https://www.tiktok.com/@@gigamallvietnam/video/@item.VideoId" target="_blank" class="btn btn-sm btn-outline-secondary">Trang gốc TikTok</a>
+                        <!-- Nút Demo Mobile WebView -->
+                        <button type="button" class="btn btn-sm btn-success mt-1" onclick="openMobileDemo('@item.VideoId')">
+                            📱 Xem Demo Mobile (WebView)
+                        </button>
+                    </div>
+                </div>
+            </div>
+        }
+    }
+</div>
+
+<div class="d-flex justify-content-center mt-4 mb-5">
+    @{
+        int currentPage = ViewBag.CurrentPage ?? 0;
+        bool hasNext = ViewBag.HasNext ?? false;
+    }
+    
+    @if (currentPage > 0)
+    {
+        <a asp-action="Index" asp-route-page="@(currentPage - 1)" class="btn btn-outline-secondary me-2">Quay lại (Trang @(currentPage))</a>
+    }
+    
+    @if (hasNext)
+    {
+        <a asp-action="Index" asp-route-page="@(currentPage + 1)" class="btn btn-outline-primary">Tiếp tục (Trang @(currentPage + 2))</a>
+    }
+    else if (Model != null && Model.Any())
+    {
+        <span class="text-muted ms-2 align-self-center">Bạn đã xem hết dữ liệu.</span>
+    }
+</div>
+
+<!-- Mobile WebView Simulation Modal -->
+<div class="modal fade" id="mobileWebViewModal" tabindex="-1" aria-labelledby="mobileWebViewModalLabel" aria-hidden="true">
+  <!-- Set max-width to simulate a mobile phone screen -->
+  <div class="modal-dialog modal-dialog-centered" style="max-width: 400px;"> 
+    <div class="modal-content" style="border-radius: 20px; overflow: hidden; border: 4px solid #333;">
+      <div class="modal-header bg-dark text-white">
+        <h5 class="modal-title" id="mobileWebViewModalLabel" style="font-size: 16px;">
+            📱 Mobile CRM App WebView
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close" onclick="stopVideo()"></button>
+      </div>
+      <div class="modal-body p-0" style="height: 650px; background-color: #000;">
+        <iframe id="tiktokIframe" width="100%" height="100%" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+      </div>
+    </div>
+  </div>
+</div>
+
+@section Scripts {
+    <script>
+        function openMobileDemo(videoId) {
+            var iframe = document.getElementById('tiktokIframe');
+            // Gắn URL Embed chính thức của TikTok
+            iframe.src = "https://www.tiktok.com/embed/v2/" + videoId;
+            var myModal = new bootstrap.Modal(document.getElementById('mobileWebViewModal'));
+            myModal.show();
+        }
+
+        // Bắt sự kiện khi modal đóng lại để ngắt video (tránh video chạy ngầm)
+        var myModalEl = document.getElementById('mobileWebViewModal');
+        myModalEl.addEventListener('hidden.bs.modal', function (event) {
+            stopVideo();
+        });
+
+        function stopVideo() {
+            document.getElementById('tiktokIframe').src = "";
+        }
+    </script>
+}

@@ -1,0 +1,136 @@
+@{
+    ViewData["Title"] = "Mobile CRM Simulator";
+}
+
+<div class="container d-flex justify-content-center mt-4">
+    <!-- Khung mô phỏng điện thoại di động -->
+    <div class="mobile-frame bg-light" style="width: 400px; height: 800px; border: 12px solid #222; border-radius: 40px; overflow: hidden; position: relative; box-shadow: 0 10px 25px rgba(0,0,0,0.5);">
+        
+        <!-- Header của App -->
+        <div class="app-header bg-danger text-white p-3 d-flex align-items-center" style="height: 70px;">
+            <button id="btnBack" class="btn btn-sm btn-link text-white text-decoration-none d-none" onclick="goBack()">
+                <i class="bi bi-arrow-left fs-4"></i>
+            </button>
+            <h5 class="m-0 ms-2" id="headerTitle">CRM Video List</h5>
+        </div>
+
+        <!-- Màn hình 1: Danh sách Video (Mô phỏng gọi API) -->
+        <div id="screenList" class="h-100 overflow-auto bg-white p-2" style="padding-bottom: 80px !important;">
+            <div id="loadingIndicator" class="text-center mt-5">
+                <div class="spinner-border text-danger" role="status"></div>
+                <p class="mt-2 text-muted">Đang gọi API tải dữ liệu...</p>
+            </div>
+            
+            <div id="videoContainer" class="d-flex flex-column gap-3">
+                <!-- Danh sách video sẽ được render bằng JS vào đây -->
+            </div>
+            
+            <div class="text-center mt-3 mb-5 pb-4">
+                <button id="btnLoadMore" class="btn btn-outline-danger btn-sm d-none" onclick="loadMore()">Tải thêm</button>
+            </div>
+        </div>
+
+        <!-- Màn hình 2: Trình phát Video (WebView) -->
+        <div id="screenPlayer" class="h-100 w-100 bg-black d-none position-absolute top-0 start-0" style="padding-top: 70px;">
+            <iframe id="tiktokIframe" width="100%" height="100%" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+        </div>
+
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        let currentPage = 0;
+        const pageSize = 5;
+
+        // Khi giao diện điện thoại vừa tải xong, tự động gọi API
+        document.addEventListener('DOMContentLoaded', function() {
+            fetchVideos(currentPage);
+        });
+
+        function fetchVideos(page) {
+            document.getElementById('loadingIndicator').classList.remove('d-none');
+            document.getElementById('btnLoadMore').classList.add('d-none');
+
+            // Gọi API THẬT tới server TitokVideos.API (Cổng 7118)
+            const apiUrl = `https://localhost:7118/api/v1/tiktok/videos?pageIndex=${page}&pageSize=${pageSize}`;
+
+            fetch(apiUrl)
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('loadingIndicator').classList.add('d-none');
+                    if(data.ok && data.result) {
+                        renderVideos(data.result);
+                        if(data.result.length === pageSize) {
+                            document.getElementById('btnLoadMore').classList.remove('d-none');
+                        }
+                    }
+                })
+                .catch(err => {
+                    console.error("API Error: ", err);
+                    document.getElementById('loadingIndicator').innerHTML = "<span class='text-danger'>Lỗi kết nối API</span>";
+                });
+        }
+
+        function renderVideos(videos) {
+            const container = document.getElementById('videoContainer');
+            videos.forEach(video => {
+                // Parse date
+                const date = new Date(video.publishedAt).toLocaleDateString('vi-VN');
+                
+                // Dựng giao diện card (giống giao diện Mobile App)
+                const card = document.createElement('div');
+                card.className = "card shadow-sm border-0";
+                card.innerHTML = `
+                    <div class="position-relative" onclick="openPlayer('${video.videoId}')" style="cursor: pointer;">
+                        <img src="${video.thumbnailUrl}" class="card-img-top" style="height: 200px; object-fit: cover;">
+                        <div class="position-absolute top-50 start-50 translate-middle">
+                            <div class="bg-dark bg-opacity-75 rounded-circle d-flex justify-content-center align-items-center" style="width: 50px; height: 50px;">
+                                <i class="bi bi-play-fill text-white fs-1"></i>
+                            </div>
+                        </div>
+                        <div class="position-absolute bottom-0 start-0 w-100 p-2 bg-dark bg-opacity-50 text-white">
+                            <small><i class="bi bi-eye"></i> ${video.viewCount.toLocaleString()} views</small>
+                        </div>
+                    </div>
+                    <div class="card-body p-2">
+                        <p class="card-text text-truncate mb-1" style="font-size: 14px; font-weight: bold;">${video.title || 'Video TikTok'}</p>
+                        <small class="text-muted">${date}</small>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function loadMore() {
+            currentPage++;
+            fetchVideos(currentPage);
+        }
+
+        function openPlayer(videoId) {
+            // Đổi màn hình từ Danh sách sang Player
+            document.getElementById('screenList').classList.add('d-none');
+            document.getElementById('screenPlayer').classList.remove('d-none');
+            
+            // Hiện nút Back trên Header
+            document.getElementById('btnBack').classList.remove('d-none');
+            document.getElementById('headerTitle').innerText = "Đang phát Video";
+
+            // Load WebView iframe
+            document.getElementById('tiktokIframe').src = "https://www.tiktok.com/embed/v2/" + videoId;
+        }
+
+        function goBack() {
+            // Tắt video
+            document.getElementById('tiktokIframe').src = "";
+            
+            // Quay lại màn hình danh sách
+            document.getElementById('screenPlayer').classList.add('d-none');
+            document.getElementById('screenList').classList.remove('d-none');
+            
+            // Khôi phục Header
+            document.getElementById('btnBack').classList.add('d-none');
+            document.getElementById('headerTitle').innerText = "CRM Video List";
+        }
+    </script>
+}
