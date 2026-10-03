@@ -8,5 +8,6 @@ namespace TitokVideos.Shared.Models
         public object? Result { get; set; }
         public int ErrorCode { get; set; }
         public string Message { get; set; } = string.Empty;
+        public bool HasNextPage { get; set; } = false;
     }
 }

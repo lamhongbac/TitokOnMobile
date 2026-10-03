@@ -126,7 +126,10 @@ namespace TitokVideos.BLL.Services
         {
             try
             {
-                var entities = await _repository.GetPagedAsync(pageIndex, pageSize);
+                var rawEntities = (await _repository.GetPagedAsync(pageIndex, pageSize + 1)).ToList();
+                bool hasNextPage = rawEntities.Count > pageSize;
+                var entities = hasNextPage ? rawEntities.Take(pageSize) : rawEntities;
+
                 var bos = entities.Select(e => new TiktokFeedBO
                 {
                     Id = e.Id,
@@ -139,7 +142,7 @@ namespace TitokVideos.BLL.Services
                     IsActive = e.IsActive
                 }).ToList();
 
-                return new BOProcessResult { OK = true, Result = bos, Message = "Success" };
+                return new BOProcessResult { OK = true, Result = bos, Message = "Success", HasNextPage = hasNextPage };
             }
             catch (Exception ex)
             {
