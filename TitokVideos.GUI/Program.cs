@@ -31,7 +31,7 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
-app.UseHttpsRedirection();
+// app.UseHttpsRedirection(); // Đóng tạm để test HTTP API bị lỗi Mixed Content
 app.UseRouting();
 
 app.UseAuthorization();

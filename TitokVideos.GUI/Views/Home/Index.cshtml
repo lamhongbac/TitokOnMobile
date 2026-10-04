@@ -1,5 +1,6 @@
 @using TitokVideos.BLL.BOs
 @model IEnumerable<TiktokFeedBO>
+@inject Microsoft.Extensions.Configuration.IConfiguration Configuration
 
 @{
     ViewData["Title"] = "TikTok Feeds";
@@ -29,16 +30,18 @@
         {
             <div class="col">
                 <div class="card h-100">
-                    <img src="@item.ThumbnailUrl" class="card-img-top" alt="Thumbnail" style="max-height: 300px; object-fit: cover;">
+                    <img src="@item.ThumbnailUrl" class="card-img-top" alt="Thumbnail" style="max-height: 300px; object-fit: cover;" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src='/images/GiGaMallLogo.png';">
                     <div class="card-body">
                         <h5 class="card-title text-truncate">@item.Title</h5>
                         <p class="card-text"><strong>Views:</strong> @item.ViewCount.ToString("N0")</p>
                         <p class="card-text"><small class="text-muted">Published: @item.PublishedAt.ToString("dd/MM/yyyy HH:mm")</small></p>
                         <a href="https://www.tiktok.com/@@gigamallvietnam/video/@item.VideoId" target="_blank" class="btn btn-sm btn-outline-secondary">Trang gốc TikTok</a>
-                        <!-- Nút Demo Mobile WebView -->
-                        <button type="button" class="btn btn-sm btn-success mt-1" onclick="openMobileDemo('@item.VideoId')">
-                            📱 Xem Demo Mobile (WebView)
-                        </button>
+                        @if (Configuration.GetValue<bool>("TitokReview"))
+                        {
+                            <button type="button" class="btn btn-sm btn-success mt-1" onclick="openMobileDemo('@item.VideoId')">
+                                📱 Review
+                            </button>
+                        }
                     </div>
                 </div>
             </div>
@@ -87,22 +90,32 @@
 
 @section Scripts {
     <script>
+        var modalInstance = null;
+
         function openMobileDemo(videoId) {
             var iframe = document.getElementById('tiktokIframe');
-            // Gắn URL Embed chính thức của TikTok
-            iframe.src = "https://www.tiktok.com/embed/v2/" + videoId;
-            var myModal = new bootstrap.Modal(document.getElementById('mobileWebViewModal'));
-            myModal.show();
+            const autoPlayEnabled = @(Configuration.GetValue<bool>("AutoPlay").ToString().ToLower());
+            
+            // Sử dụng hàm dùng chung từ site.js để build URL cấu hình Player
+            iframe.src = getTiktokPlayerUrl(videoId, autoPlayEnabled);
+            
+            if (!modalInstance) {
+                modalInstance = new bootstrap.Modal(document.getElementById('mobileWebViewModal'));
+            }
+            modalInstance.show();
         }
 
-        // Bắt sự kiện khi modal đóng lại để ngắt video (tránh video chạy ngầm)
+        // Bắt sự kiện khi modal đóng lại để ngắt video triệt để
         var myModalEl = document.getElementById('mobileWebViewModal');
         myModalEl.addEventListener('hidden.bs.modal', function (event) {
             stopVideo();
         });
 
         function stopVideo() {
-            document.getElementById('tiktokIframe').src = "";
+            var iframe = document.getElementById('tiktokIframe');
+            if (iframe) {
+                iframe.src = "";
+            }
         }
     </script>
 }

@@ -58,25 +58,30 @@ Mọi thông số động của hệ thống được quản lý bảo mật th�
 ### B. Hướng dẫn Tích hợp & Các Lưu ý Đặc biệt Quan trọng (CRITICAL)
 
 **1. KHÔNG sử dụng Native Player cho trường `mediaUrl`**
-Do cơ chế chống Hotlinking của CDN mạng TikTok, URL chứa trong trường `mediaUrl` bao gồm token chữ ký số bảo mật `x-expires`. Sau một thời gian, token này hết hạn.
-Nếu Mobile App truyền link này thẳng vào trình phát video native (ExoPlayer trên Android hoặc AVPlayer trên Swift), hệ thống của Akamai sẽ chặn và trả về lỗi **403 Access Denied**.
+Do cơ chế chống Hotlinking của CDN mạng TikTok, URL chứa trong trường `mediaUrl` bao gồm token chữ ký số bảo mật `x-expires`. Sau một thời gian ngắn, token này hết hạn. Hơn nữa, TikTok còn sử dụng các cơ chế kiểm tra Referer khắt khe.
+Nếu Mobile App truyền link này thẳng vào trình phát video native (ExoPlayer trên Android hoặc AVPlayer trên Swift), hệ thống sẽ chặn và trả về lỗi tải Media (HTTP 403 Access Denied hoặc MEDIA_ERR_SRC_NOT_SUPPORTED).
 
-**2. Giải pháp chuẩn (Best Practice): Phát Video qua In-App Browser (WebView)**
-Để đảm bảo video luôn xem được trơn tru, đội Mobile phải sử dụng Web Player nhúng chính thức của TikTok:
+**2. Tránh sử dụng endpoint nhúng cũ `embed/v2`**
+Đường dẫn `https://www.tiktok.com/embed/v2/{videoId}` đang bị hệ thống Web Application Firewall (WAF) của Akamai/TikTok đưa vào tầm ngắm chặn tự động đối với các IP lạ, khiến trang trả về lỗi `503 Service Unavailable` với nội dung `overload-protect triggered` màn hình trắng/đen.
+
+**3. Giải pháp chuẩn (Best Practice): Phát Video qua In-App Browser bằng TikTok Player v1**
+Để đảm bảo video luôn xem được trơn tru và vượt qua các tường lửa chặn bot, đội Mobile phải sử dụng API Web Player v1 chính thức của TikTok:
 - Ở màn hình **Danh sách Video (List/Grid)**: Sử dụng trường `thumbnailUrl` để render ảnh bìa.
 - Khi người dùng **Click xem một Video**: Chuyển sang màn hình mới có một **WebView (In-App Browser)**.
 - **Cấu trúc URL cho WebView**: 
-  Hãy dùng chuỗi: `https://www.tiktok.com/embed/v2/{videoId}`
+  Hãy dùng chuỗi: `https://www.tiktok.com/player/v1/{videoId}?music_info=1&description=1`
+  *(Có thể truyền thêm tham số `&autoplay=1&mute=0` nếu muốn video tự động phát. Lưu ý trên nền tảng Web, trình duyệt có thể ép buộc mute khi autoplay, nhưng trên Mobile WebView thường có thể cấu hình bỏ qua giới hạn này).*
   
 **Ví dụ code Swift (iOS):**
 ```swift
 import WebKit
 // Lấy videoId từ API trả về
 let videoId = videoData.videoId
-let embedUrl = URL(string: "https://www.tiktok.com/embed/v2/\(videoId)")!
+let playerUrl = URL(string: "https://www.tiktok.com/player/v1/\(videoId)?music_info=1&description=1&autoplay=1&mute=0")!
 
 let webView = WKWebView(frame: self.view.bounds)
-webView.load(URLRequest(url: embedUrl))
+// Lưu ý: Có thể cần cấu hình WKWebViewConfiguration để cho phép mediaPlayWithoutUserAction nếu dùng autoplay
+webView.load(URLRequest(url: playerUrl))
 self.view.addSubview(webView)
 ```
 
@@ -84,9 +89,10 @@ self.view.addSubview(webView)
 ```kotlin
 val webView = findViewById<WebView>(R.id.webView)
 webView.settings.javaScriptEnabled = true // Rất quan trọng để chạy player TikTok
+webView.settings.mediaPlaybackRequiresUserGesture = false // Cần thiết nếu muốn autoplay có tiếng
 
 val videoId = videoData.videoId
-webView.loadUrl("https://www.tiktok.com/embed/v2/$videoId")
+webView.loadUrl("https://www.tiktok.com/player/v1/$videoId?music_info=1&description=1&autoplay=1&mute=0")
 ```
 
 **3. Quản lý LifeCycle của WebView**

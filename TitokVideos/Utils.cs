@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -13,7 +13,7 @@ namespace TitokVideos
         /// Hàm getUseriD()=>secUid để gọi API lấy thông tin secUid của Gigamall Vietnam=gigamallvietnam
         /// </summary>
         /// <returns></returns>
-        public static async Task<string> GetUseriD()
+        public static async Task<string?> GetUseriD()
         {
             
 
@@ -43,7 +43,7 @@ namespace TitokVideos
                 //Console.WriteLine(body);
                 return body;
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 //Console.WriteLine($"LỖI GỌI API: {ex.Message}");
                 return null;
