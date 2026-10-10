@@ -34,5 +34,16 @@ namespace TitokVideos.API.Controllers
             // Trả về JSON bọc trong định dạng BOProcessResult chuẩn
             return Ok(result);
         }
+
+        /// <summary>
+        /// Migrate (tải lại) các thumbnail cũ chưa được lưu trên server
+        /// </summary>
+        /// <returns>Kết quả migrate</returns>
+        [HttpPost("migrate-thumbnails")]
+        public async Task<IActionResult> MigrateThumbnails()
+        {
+            var result = await _service.MigrateOldThumbnailsAsync();
+            return Ok(result);
+        }
     }
 }

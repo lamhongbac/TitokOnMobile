@@ -55,5 +55,23 @@ namespace TitokVideos.DAL.Repositories
             ";
             return await _dbConnection.QueryAsync<TiktokFeed>(sql, new { Offset = pageIndex * pageSize, PageSize = pageSize });
         }
+
+        public async Task<IEnumerable<TiktokFeed>> GetOldThumbnailsAsync()
+        {
+            var sql = "SELECT * FROM [dbo].[TiktokFeed] WHERE ThumbnailUrl LIKE 'http%';";
+            return await _dbConnection.QueryAsync<TiktokFeed>(sql);
+        }
+
+        public async Task<int> UpdateThumbnailUrlAsync(Guid id, string url)
+        {
+            var sql = "UPDATE [dbo].[TiktokFeed] SET ThumbnailUrl = @Url WHERE Id = @Id;";
+            return await _dbConnection.ExecuteAsync(sql, new { Url = url, Id = id });
+        }
+
+        public async Task<int> UpdateMediaUrlAsync(Guid id, string url)
+        {
+            var sql = "UPDATE [dbo].[TiktokFeed] SET MediaUrl = @Url WHERE Id = @Id;";
+            return await _dbConnection.ExecuteAsync(sql, new { Url = url, Id = id });
+        }
     }
 }
