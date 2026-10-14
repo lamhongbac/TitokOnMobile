@@ -12,6 +12,7 @@ namespace TitokVideos.DAL.Repositories
         Task<TiktokFeed?> GetByVideoIdAsync(string videoId);
         Task<IEnumerable<TiktokFeed>> GetPagedAsync(int pageIndex, int pageSize);
         Task<IEnumerable<TiktokFeed>> GetOldThumbnailsAsync();
+        Task<IEnumerable<TiktokFeed>> GetOldThumbnailsPagedAsync(int pageIndex, int pageSize);
         Task<int> UpdateThumbnailUrlAsync(Guid id, string url);
         Task<int> UpdateMediaUrlAsync(Guid id, string url);
     }

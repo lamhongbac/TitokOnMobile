@@ -36,6 +36,17 @@ namespace TitokVideos.API.Controllers
         }
 
         /// <summary>
+        /// Đồng bộ video mới từ TikTok (Smart Sync)
+        /// </summary>
+        /// <returns>Kết quả đồng bộ</returns>
+        [HttpPost("sync")]
+        public async Task<IActionResult> Sync()
+        {
+            var result = await _service.SyncTiktokFeedsAsync();
+            return Ok(result);
+        }
+
+        /// <summary>
         /// Migrate (tải lại) các thumbnail cũ chưa được lưu trên server
         /// </summary>
         /// <returns>Kết quả migrate</returns>

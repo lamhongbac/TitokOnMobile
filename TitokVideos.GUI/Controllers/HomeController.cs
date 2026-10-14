@@ -10,6 +10,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using TitokVideos.BLL.BOs;
 using TitokVideos.GUI.Models;
+using TitokVideos.Shared.Models;
 
 namespace TitokVideos.GUI.Controllers
 {
