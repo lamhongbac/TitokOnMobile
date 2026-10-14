@@ -58,8 +58,19 @@ namespace TitokVideos.DAL.Repositories
 
         public async Task<IEnumerable<TiktokFeed>> GetOldThumbnailsAsync()
         {
-            var sql = "SELECT * FROM [dbo].[TiktokFeed] WHERE ThumbnailUrl LIKE 'http%';";
+            var sql = "SELECT * FROM [dbo].[TiktokFeed] WHERE ThumbnailUrl LIKE 'http%' OR MediaUrl LIKE 'http%';";
             return await _dbConnection.QueryAsync<TiktokFeed>(sql);
+        }
+
+        // New paginated version for DRY migration
+        public async Task<IEnumerable<TiktokFeed>> GetOldThumbnailsPagedAsync(int pageIndex, int pageSize)
+        {
+            var sql = @"
+                SELECT * FROM [dbo].[TiktokFeed]
+                WHERE ThumbnailUrl LIKE 'http%' OR MediaUrl LIKE 'http%'
+                ORDER BY PublishedAt DESC
+                OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY;";
+            return await _dbConnection.QueryAsync<TiktokFeed>(sql, new { Offset = pageIndex * pageSize, PageSize = pageSize });
         }
 
         public async Task<int> UpdateThumbnailUrlAsync(Guid id, string url)

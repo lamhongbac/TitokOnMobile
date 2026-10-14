@@ -7,6 +7,6 @@ namespace TitokVideos.BLL.Services
     {
         Task<BOProcessResult> SyncTiktokFeedsAsync();
         Task<BOProcessResult> GetFeedsAsync(int pageIndex, int pageSize);
-        Task<BOProcessResult> MigrateOldThumbnailsAsync();
+        Task<BOProcessResult> MigrateOldThumbnailsAsync(int pageIndex, int pageSize);
     }
 }

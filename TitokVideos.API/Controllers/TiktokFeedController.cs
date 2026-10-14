@@ -40,9 +40,9 @@ namespace TitokVideos.API.Controllers
         /// </summary>
         /// <returns>Kết quả migrate</returns>
         [HttpPost("migrate-thumbnails")]
-        public async Task<IActionResult> MigrateThumbnails()
+        public async Task<IActionResult> MigrateThumbnails([FromQuery] int pageIndex = 0, [FromQuery] int pageSize = 10)
         {
-            var result = await _service.MigrateOldThumbnailsAsync();
+            var result = await _service.MigrateOldThumbnailsAsync(pageIndex, pageSize);
             return Ok(result);
         }
     }

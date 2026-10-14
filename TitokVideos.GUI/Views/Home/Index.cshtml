@@ -13,6 +13,9 @@
     <form asp-action="Sync" method="post">
         <button type="submit" class="btn btn-primary btn-lg">Bắt đầu Đồng bộ (Smart Sync)</button>
     </form>
+    <form asp-action="MigrateThumbnails" method="post" asp-route-page="@ViewBag.CurrentPage">
+        <button type="submit" class="btn btn-warning btn-lg ms-2">Migrate old Thumbnails</button>
+    </form>
 </div>
 
 @if (TempData["Message"] != null)

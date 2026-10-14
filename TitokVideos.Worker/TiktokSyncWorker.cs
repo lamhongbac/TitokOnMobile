@@ -1,25 +1,28 @@
 using System;
+using System.Net.Http;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using TitokVideos.BLL.Services;
+using TitokVideos.Shared.Models;
 
 namespace TitokVideos.Worker
 {
     public class TiktokSyncWorker : BackgroundService
     {
         private readonly ILogger<TiktokSyncWorker> _logger;
-        private readonly IServiceProvider _serviceProvider;
+        private readonly IHttpClientFactory _httpClientFactory;
         private readonly IConfiguration _configuration;
+        private readonly string _apiBaseUrl;
 
-        public TiktokSyncWorker(ILogger<TiktokSyncWorker> logger, IServiceProvider serviceProvider, IConfiguration configuration)
+        public TiktokSyncWorker(ILogger<TiktokSyncWorker> logger, IHttpClientFactory httpClientFactory, IConfiguration configuration)
         {
             _logger = logger;
-            _serviceProvider = serviceProvider;
+            _httpClientFactory = httpClientFactory;
             _configuration = configuration;
+            _apiBaseUrl = _configuration["ApiSettings:BaseUrl"]?.TrimEnd('/') ?? string.Empty;
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -49,29 +52,40 @@ namespace TitokVideos.Worker
 
                 if (!stoppingToken.IsCancellationRequested)
                 {
-                    _logger.LogInformation($"[{DateTime.Now:HH:mm:ss}] Starting Tiktok Feed Smart Sync...");
-                    
-                    try
+                    var runId = Guid.NewGuid().ToString("N").Substring(0, 8);
+                    var startedAt = DateTime.Now;
+                    var sw = System.Diagnostics.Stopwatch.StartNew();
+                    string status = "UNKNOWN";
+                    string message = string.Empty;
+
+                    using (_logger.BeginScope("RunId:{RunId}", runId))
                     {
-                        // Tạo DI Scope mới để lấy ra các Service Scoped
-                        using (var scope = _serviceProvider.CreateScope())
+                        _logger.LogInformation("========== [RUN {RunId}] BẮT ĐẦU Tiktok Feed Smart Sync lúc {StartedAt:dd/MM/yyyy HH:mm:ss} ==========", runId, startedAt);
+
+                        try
                         {
-                            var syncService = scope.ServiceProvider.GetRequiredService<ITiktokFeedService>();
-                            var result = await syncService.SyncTiktokFeedsAsync();
-                            
-                            if (result.OK)
-                            {
-                                _logger.LogInformation($"[SUCCESS] {result.Message}");
-                            }
-                            else
-                            {
-                                _logger.LogError($"[FAILED] {result.Message}");
-                            }
+                            var client = _httpClientFactory.CreateClient();
+                            var response = await client.PostAsync($"{_apiBaseUrl}/api/v1/tiktok/videos/sync", null, stoppingToken);
+                            response.EnsureSuccessStatusCode();
+
+                            var json = await response.Content.ReadAsStringAsync(stoppingToken);
+                            var result = JsonSerializer.Deserialize<BOProcessResult>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+                            status = result?.OK == true ? "SUCCESS" : "FAILED";
+                            message = result?.Message ?? string.Empty;
                         }
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogCritical(ex, "Lỗi nghiêm trọng trong quá trình chạy Background Sync.");
+                        catch (Exception ex)
+                        {
+                            status = "CRASHED";
+                            message = ex.Message;
+                            _logger.LogCritical(ex, "Lỗi nghiêm trọng trong quá trình chạy Background Sync.");
+                        }
+
+                        sw.Stop();
+                        var level = status == "SUCCESS" ? LogLevel.Information : LogLevel.Error;
+                        _logger.Log(level,
+                            "========== [RUN {RunId}] KẾT THÚC | Trạng thái: {Status} | Thời gian: {Elapsed:F1}s | Kết quả: {Message} ==========",
+                            runId, status, sw.Elapsed.TotalSeconds, message);
                     }
                 }
             }
