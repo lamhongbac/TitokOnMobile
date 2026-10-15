@@ -40,9 +40,9 @@ namespace TitokVideos.API.Controllers
         /// </summary>
         /// <returns>Kết quả đồng bộ</returns>
         [HttpPost("sync")]
-        public async Task<IActionResult> Sync()
+        public async Task<IActionResult> Sync([FromHeader(Name = TriggerSource.HeaderName)] string? triggeredBy = null)
         {
-            var result = await _service.SyncTiktokFeedsAsync();
+            var result = await _service.SyncTiktokFeedsAsync(TriggerSource.Normalize(triggeredBy));
             return Ok(result);
         }
 
@@ -51,9 +51,9 @@ namespace TitokVideos.API.Controllers
         /// </summary>
         /// <returns>Kết quả migrate</returns>
         [HttpPost("migrate-thumbnails")]
-        public async Task<IActionResult> MigrateThumbnails([FromQuery] int pageIndex = 0, [FromQuery] int pageSize = 10)
+        public async Task<IActionResult> MigrateThumbnails([FromQuery] int pageIndex = 0, [FromQuery] int pageSize = 10, [FromHeader(Name = TriggerSource.HeaderName)] string? triggeredBy = null)
         {
-            var result = await _service.MigrateOldThumbnailsAsync(pageIndex, pageSize);
+            var result = await _service.MigrateOldThumbnailsAsync(pageIndex, pageSize, TriggerSource.Normalize(triggeredBy));
             return Ok(result);
         }
     }

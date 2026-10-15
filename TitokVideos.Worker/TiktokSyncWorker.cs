@@ -65,6 +65,7 @@ namespace TitokVideos.Worker
                         try
                         {
                             var client = _httpClientFactory.CreateClient();
+                            client.DefaultRequestHeaders.Add(TriggerSource.HeaderName, TriggerSource.Worker);
                             var response = await client.PostAsync($"{_apiBaseUrl}/api/v1/tiktok/videos/sync", null, stoppingToken);
                             response.EnsureSuccessStatusCode();
 

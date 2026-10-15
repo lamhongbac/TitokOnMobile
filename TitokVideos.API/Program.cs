@@ -9,6 +9,15 @@ var builder = WebApplication.CreateBuilder(args);
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
     .WriteTo.File("Logs/api-log-.txt", rollingInterval: RollingInterval.Day)
+    // Download report: file riêng nằm trong project API (Logs/download-report-yyyyMMdd.txt).
+    // Mọi thao tác tải media từ GUI (Manual Sync/Migrate) và Worker (Auto Sync) đều đi qua API nên đều được ghi vào đây.
+    .WriteTo.Logger(lc => lc
+        .Filter.ByIncludingOnly(Serilog.Filters.Matching.FromSource(TiktokFeedService.DownloadReportCategory))
+        .WriteTo.File(
+            Path.Combine(builder.Environment.ContentRootPath, "Logs", "download-report-.txt"),
+            rollingInterval: RollingInterval.Day,
+            outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] TRIGGER={TriggeredBy} | {Message:lj}{NewLine}"))
+    .Enrich.FromLogContext()
     .CreateLogger();
 builder.Host.UseSerilog();
 

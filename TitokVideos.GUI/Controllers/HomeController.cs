@@ -37,12 +37,14 @@ namespace TitokVideos.GUI.Controllers
             response.EnsureSuccessStatusCode();
 
             var json = await response.Content.ReadAsStringAsync();
-            var result = JsonSerializer.Deserialize<BOProcessResult>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-            var feeds = result?.Result as IEnumerable<TiktokFeedBO>;
+            var jsonOptions = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            var result = JsonSerializer.Deserialize<BOProcessResult<List<TiktokFeedBO>>>(json, jsonOptions);
+
+            var feeds = result?.Result ?? new List<TiktokFeedBO>();
 
             ViewBag.CurrentPage = page;
             ViewBag.PageSize = pageSize;
-            ViewBag.HasNext = feeds != null && feeds.Count() == pageSize;
+            ViewBag.HasNext = result?.HasNextPage ?? false;
 
             return View(feeds);
         }
@@ -51,6 +53,7 @@ namespace TitokVideos.GUI.Controllers
         public async Task<IActionResult> Sync()
         {
             var client = _httpClientFactory.CreateClient();
+            client.DefaultRequestHeaders.Add(TriggerSource.HeaderName, TriggerSource.ManualGui);
             var response = await client.PostAsync($"{_apiBaseUrl}/api/v1/tiktok/videos/sync", null);
             response.EnsureSuccessStatusCode();
 
@@ -65,6 +68,7 @@ namespace TitokVideos.GUI.Controllers
         {
             int pageSize = _configuration.GetValue<int>("Pagination:PageSize", 5);
             var client = _httpClientFactory.CreateClient();
+            client.DefaultRequestHeaders.Add(TriggerSource.HeaderName, TriggerSource.ManualGui);
             var response = await client.PostAsync($"{_apiBaseUrl}/api/v1/tiktok/videos/migrate-thumbnails?pageIndex={page}&pageSize={pageSize}", null);
             response.EnsureSuccessStatusCode();
 
